@@ -13,18 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import * as vscode from "vscode";
-import * as cp from "child_process";
+import * as vscode from 'vscode';
+import * as cp from 'child_process';
 
 const documentFilter: vscode.DocumentFilter = {
-  language: "java",
-  scheme: "file",
+  language: 'java',
+  scheme: 'file',
 };
 
-const outputChannel = vscode.window.createOutputChannel("google-java-format");
+const outputChannel = vscode.window.createOutputChannel('google-java-format');
 
 class GoogleJavaFormatProvider
-  implements vscode.DocumentRangeFormattingEditProvider {
+  implements vscode.DocumentRangeFormattingEditProvider
+{
   provideDocumentRangeFormattingEdits(
     document: vscode.TextDocument,
     range: vscode.Range,
@@ -32,12 +33,12 @@ class GoogleJavaFormatProvider
     token: vscode.CancellationToken
   ): vscode.ProviderResult<vscode.TextEdit[]> {
     const executablePath = vscode.workspace
-      .getConfiguration("google-java-format")
-      .get<string>("executable-path");
+      .getConfiguration('google-java-format')
+      .get<string>('executable-path');
 
     if (executablePath === undefined) {
       vscode.window.showErrorMessage(
-        "google-java-format.executable-path not defined"
+        'google-java-format.executable-path not defined'
       );
       return Promise.resolve(null);
     }
@@ -47,29 +48,29 @@ class GoogleJavaFormatProvider
     );
 
     return new Promise((resolve, reject) => {
-      let stdout = "";
-      let stderr = "";
+      let stdout = '';
+      let stderr = '';
       let child = cp.spawn(executablePath, [
-        "--lines",
+        '--lines',
         `${range.start.line}:${range.end.line}`,
-        "-",
+        '-',
       ]);
-      child.stdout.on("data", (chunk) => (stdout += chunk));
-      child.stderr.on("data", (chunk) => (stderr += chunk));
-      child.on("error", (err) => {
+      child.stdout.on('data', (chunk) => (stdout += chunk));
+      child.stderr.on('data', (chunk) => (stderr += chunk));
+      child.on('error', (err) => {
         vscode.window.showErrorMessage(
           `Could not run google-java-format: ${err}`
         );
         return reject(err);
       });
-      child.on("close", (retcode) => {
+      child.on('close', (retcode) => {
         if (stderr.length > 0) {
           outputChannel.appendLine(stderr);
-          return reject("Failed to format file");
+          return reject('Failed to format file');
         }
 
         if (retcode !== 0) {
-          return reject("Failed to format file");
+          return reject('Failed to format file');
         }
 
         return resolve([
