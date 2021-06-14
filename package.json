@@ -3,7 +3,7 @@
   "displayName": "ktfmt",
   "description": "A simple ktfmt runner",
   "publisher": "crdrost",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/crdrost/vscode-ktfmt"
