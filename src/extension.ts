@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Ilkka Poutanen
+ * Copyright 2020 Ilkka Poutanen, CR Drost
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,64 +15,106 @@
  */
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
+import { env } from 'process';
+import * as path from 'path';
 
 const documentFilter: vscode.DocumentFilter = {
-  language: 'java',
+  language: 'kotlin',
   scheme: 'file',
 };
 
-const outputChannel = vscode.window.createOutputChannel('google-java-format');
+const outputChannel = vscode.window.createOutputChannel('ktfmt');
+interface JavaRuntime {
+  name: string;
+  path: string;
+  default?: boolean;
+}
 
-class GoogleJavaFormatProvider
-  implements vscode.DocumentRangeFormattingEditProvider
-{
+class KtfmtProvider implements vscode.DocumentRangeFormattingEditProvider {
   provideDocumentRangeFormattingEdits(
-    document: vscode.TextDocument,
-    range: vscode.Range,
-    options: vscode.FormattingOptions,
-    token: vscode.CancellationToken
+    document: vscode.TextDocument
+    // range: vscode.Range,
+    // options: vscode.FormattingOptions,
+    // token: vscode.CancellationToken
   ): vscode.ProviderResult<vscode.TextEdit[]> {
-    const executablePath = vscode.workspace
-      .getConfiguration('google-java-format')
-      .get<string>('executable-path');
+    const config = vscode.workspace.getConfiguration('ktfmt');
+    const runtimes = vscode.workspace
+      .getConfiguration('java.configuration')
+      .get<JavaRuntime[]>('runtimes');
 
-    if (executablePath === undefined) {
+    if (!runtimes || typeof runtimes !== 'object' || !runtimes.length) {
       vscode.window.showErrorMessage(
-        'google-java-format.executable-path not defined'
+        'ktfmt could not start.\nCould not find any java runtimes in java.configuration.runtimes'
       );
       return Promise.resolve(null);
     }
+    const pathToJar = config.get<string>('path-to-jar');
+    const javaRuntimeName = config.get<string>('java-runtime');
+    let runtime: undefined | JavaRuntime;
+    if (!javaRuntimeName) {
+      runtime = runtimes.find((x) => x.default);
+      if (!runtime) {
+        vscode.window.showErrorMessage(
+          'ktfmt could not start.\nNo java runtime specified in ktfmt.java-runtime and none of the java.configuration.runtimes are marked as {default: true}'
+        );
+        return Promise.resolve(null);
+      }
+    } else {
+      runtime = runtimes.find((x) => x.name === javaRuntimeName);
+      if (!runtime) {
+        vscode.window.showErrorMessage(
+          'ktfmt could not start.\nNo java runtime with {name: ' +
+            JSON.stringify(javaRuntimeName) +
+            '} found in java.configuration.runtimes.'
+        );
+        return Promise.resolve(null);
+      }
+    }
+    if (pathToJar === undefined) {
+      vscode.window.showErrorMessage(
+        'ktfmt could not start.\nktfmt.path-to-jar not defined'
+      );
+      return Promise.resolve(null);
+    }
+    const javaHome = runtime.path;
 
-    outputChannel.appendLine(
-      `Formatting ${document.fileName} from ${range.start.line} to ${range.end.line}`
-    );
-
+    outputChannel.appendLine(`Formatting ${document.fileName}`);
+    const subEnv = { ...env };
+    subEnv.JAVA_HOME = javaHome;
     return new Promise((resolve, reject) => {
       let stdout = '';
-      let stderr = '';
-      let child = cp.spawn(executablePath, [
-        '--lines',
-        `${range.start.line}:${range.end.line}`,
-        '-',
-      ]);
-      child.stdout.on('data', (chunk) => (stdout += chunk));
-      child.stderr.on('data', (chunk) => (stderr += chunk));
-      child.on('error', (err) => {
-        vscode.window.showErrorMessage(
-          `Could not run google-java-format: ${err}`
+      let child: cp.ChildProcessWithoutNullStreams;
+      try {
+        child = cp.spawn(
+          path.resolve(javaHome, 'bin', 'java'),
+          ['-jar', pathToJar, '-'],
+          {
+            env: subEnv,
+          }
         );
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
+      } catch (err) {
+        outputChannel.appendLine('Could not format: ' + err);
+        return reject(err);
+      }
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk;
+      });
+      child.stderr.on('data', (chunk) => {
+        outputChannel.appendLine(chunk.replace(/^/gm, 'ktfmt.err> '));
+      });
+      child.on('error', (err) => {
+        vscode.window.showErrorMessage(`Could not run ktfmt
+        : ${err}`);
         return reject(err);
       });
       child.on('close', (retcode) => {
-        if (stderr.length > 0) {
-          outputChannel.appendLine(stderr);
-          return reject('Failed to format file');
-        }
-
         if (retcode !== 0) {
-          return reject('Failed to format file');
+          return reject(
+            'Failed to format file; ktfmt exited with code ' + retcode
+          );
         }
-
         return resolve([
           new vscode.TextEdit(
             new vscode.Range(0, 0, document.lineCount + 1, 0),
@@ -96,7 +138,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.languages.registerDocumentRangeFormattingEditProvider(
       documentFilter,
-      new GoogleJavaFormatProvider()
+      new KtfmtProvider()
     )
   );
 }

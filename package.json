@@ -1,15 +1,15 @@
 {
-  "name": "google-java-format",
-  "displayName": "google-java-format",
-  "description": "Yet another simple google-java-format runner",
-  "publisher": "ilkka",
-  "version": "1.0.2",
+  "name": "ktfmt",
+  "displayName": "ktfmt",
+  "description": "A simple ktfmt runner",
+  "publisher": "crdrost",
+  "version": "0.0.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ilkka/vscode-google-java-format"
+    "url": "https://github.com/crdrost/vscode-ktfmt"
   },
   "keywords": [
-    "Java"
+    "Kotlin"
   ],
   "engines": {
     "vscode": "^1.51.0"
@@ -18,17 +18,22 @@
     "Formatters"
   ],
   "activationEvents": [
-    "onLanguage:java"
+    "onLanguage:kotlin"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
-      "title": "Google-java-format configuration",
+      "title": "ktfmt configuration",
       "properties": {
-        "google-java-format.executable-path": {
+        "ktfmt.path-to-jar": {
           "type": "string",
-          "default": "/usr/local/bin/google-java-format",
-          "description": "Path to google-java-format script"
+          "default": "$HOME/.local/lib/ktfmt-0.25-jar-with-dependencies.jar",
+          "description": "Path to ktfmt jar"
+        },
+        "ktfmt.java-runtime": {
+          "type": "string",
+          "default": "",
+          "description": "Which runtime in java.configurations.runtime should be used. If empty, use whichever has {default: true}."
         }
       }
     }
